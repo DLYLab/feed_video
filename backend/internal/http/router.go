@@ -21,14 +21,24 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 	if err := r.SetTrustedProxies(nil); err != nil {
 		log.Printf("SetTrustedProxies failed: %v", err)
 	}
-	r.Static("/static", "./.run/uploads")
-	// rate_limit
+	// 静态资源访问：通过 r.Static("/static", "./.run/uploads") 将本地文件上传目录映射到 URL，以便前端通过 /static/... 路径查看视频封面和文件。
+	r.Static("/static", "./.run/uploads") 
+
+	// 	2. 限流器配置 (Rate Limiting)
+	// 代码为不同等级的操作配置了基于 Redis 的限流方案：
+
+	// 账户安全：登录限流（每分钟 10 次，按 IP）、注册限流（每小时 5 次，按 IP）。
 	loginLimiter := ratelimit.Limit(cache, "account_login", 10, time.Minute, ratelimit.KeyByIP)
 	registerLimiter := ratelimit.Limit(cache, "account_register", 5, time.Hour, ratelimit.KeyByIP)
 
+	// 业务操作：点赞、评论、关注均配置了限流，且基于 AccountID（账号）进行限制，防止单个恶意账号频繁刷数据。
 	likeLimiter := ratelimit.Limit(cache, "like_write", 30, time.Minute, ratelimit.KeyByAccount)
 	commentLimiter := ratelimit.Limit(cache, "comment_write", 10, time.Minute, ratelimit.KeyByAccount)
 	socialLimiter := ratelimit.Limit(cache, "social_write", 20, time.Minute, ratelimit.KeyByAccount)
+
+	// 	3. 模块化设计与依赖注入 (Dependency Injection)
+	// 代码将系统拆分为五个核心模块：Account、Video、Like、Comment、Social、Feed。
+	// 每个模块都遵循 Repository -> Service -> Handler 的三层架构，并通过主函数传参将 db、cache（Redis）和 rmq（RabbitMQ）注入其中。
 
 	// account
 	accountRepository := account.NewAccountRepository(db)
@@ -43,11 +53,12 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 		accountGroup.POST("/findByUsername", accountHandler.FindByUsername)
 	}
 	protectedAccountGroup := accountGroup.Group("")
-	protectedAccountGroup.Use(jwt.JWTAuth(accountRepository, cache))
+	protectedAccountGroup.Use(jwt.JWTAuth(accountRepository, cache))  // 硬鉴权 (JWTAuth)：用于需要用户身份才能执行的操作，如“发布视频”、“点赞”、“修改密码”等。
 	{
 		protectedAccountGroup.POST("/logout", accountHandler.Logout)
 		protectedAccountGroup.POST("/rename", accountHandler.Rename)
 	}
+	
 	// video
 	videoRepository := video.NewVideoRepository(db)
 	popularityMQ, err := rabbitmq.NewPopularityMQ(rmq)
