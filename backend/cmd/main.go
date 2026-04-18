@@ -18,7 +18,7 @@ func main() {
 	// 从指定路径加载 YAML 配置文件
 	log.Printf("Loading config from configs/config.yaml")
 	const configPath = "configs/config.yaml"
-	cfg, usedDefault, err := config.LoadLocalDev(configPath)
+	cfg, usedDefault, err := config.LoadLocalDev(configPath) // 读取配置，并解析到Config结构体中
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}

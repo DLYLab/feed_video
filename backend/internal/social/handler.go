@@ -75,7 +75,7 @@ func (h *SocialHandler) GetAllFollowers(c *gin.Context) {
 	}
 
 	vloggerID := req.VloggerID
-	if vloggerID == 0 {
+	if vloggerID == 0 {  // 如果没有传入查询的用户ID，就查询自己的Follwer
 		accountID, err := jwt.GetAccountID(c)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})

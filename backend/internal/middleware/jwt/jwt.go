@@ -96,7 +96,7 @@ func check(c *gin.Context, claims *auth.Claims, tokenString string, accountRepo 
 		return
 	}
 
-	if cache != nil {
+	if cache != nil {  // 数据回填
 		cacheCtx, cancel := context.WithTimeout(c.Request.Context(), 50*time.Millisecond)
 		defer cancel()
 

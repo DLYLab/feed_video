@@ -72,7 +72,7 @@ func (vh *VideoHandler) UploadVideo(c *gin.Context) {
 		return
 	}
 
-	const maxSize = 200 << 20
+	const maxSize = 200 << 20  // 文件最大200MB
 	if f.Size <= 0 || f.Size > maxSize {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file size"})
 		return
@@ -87,7 +87,7 @@ func (vh *VideoHandler) UploadVideo(c *gin.Context) {
 	date := time.Now().Format("20060102")
 	relDir := filepath.Join("videos", fmt.Sprintf("%d", authorId), date)
 	root := filepath.Join(".run", "uploads")
-	absDir := filepath.Join(root, relDir)
+	absDir := filepath.Join(root, relDir)  // 拼接视频储存地址
 	if err := os.MkdirAll(absDir, 0o755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

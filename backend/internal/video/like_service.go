@@ -37,7 +37,7 @@ func (s *LikeService) Like(ctx context.Context, like *Like) error {
 	}
 
 	if s.VideoRepo != nil {
-		ok, err := s.VideoRepo.IsExist(ctx, like.VideoID)
+		ok, err := s.VideoRepo.IsExist(ctx, like.VideoID)  // 判断video表中这个VideoID是否存在
 		if err != nil {
 			return err
 		}
@@ -46,7 +46,7 @@ func (s *LikeService) Like(ctx context.Context, like *Like) error {
 		}
 	}
 
-	isLiked, err := s.repo.IsLiked(ctx, like.VideoID, like.AccountID)
+	isLiked, err := s.repo.IsLiked(ctx, like.VideoID, like.AccountID)  // 判断用户是否以前已经喜欢过这个video
 	if err != nil {
 		return err
 	}
@@ -54,6 +54,7 @@ func (s *LikeService) Like(ctx context.Context, like *Like) error {
 		return errors.New("user has liked this video")
 	}
 
+	// 在like表中创建新的喜欢关系
 	like.CreatedAt = time.Now()
 	mysqlEnqueued := false
 	redisEnqueued := false
@@ -71,6 +72,7 @@ func (s *LikeService) Like(ctx context.Context, like *Like) error {
 		return nil
 	}
 
+	// 兜底策略，使用Transaction来操作数据库保证数据一致性（要么都成功、要么都失败）
 	// Fallback: direct MySQL write when like MQ publish fails.
 	if !mysqlEnqueued {
 		err := s.repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

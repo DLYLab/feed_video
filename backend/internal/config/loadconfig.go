@@ -75,7 +75,7 @@ func LoadLocalDev(filename string) (Config, bool, error) {
 	return Config{}, false, err
 }
 
-func DefaultLocalConfig() Config {
+func DefaultLocalConfig() Config { // 默认配置
 	return Config{
 		Server: ServerConfig{
 			Port: 8080,

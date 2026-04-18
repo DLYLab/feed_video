@@ -47,7 +47,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 	accountGroup := r.Group("/account")
 	{
 		accountGroup.POST("/register", registerLimiter, accountHandler.CreateAccount)
-		accountGroup.POST("/login", loginLimiter, accountHandler.Login)
+		accountGroup.POST("/login", loginLimiter, accountHandler.Login) // 
 		accountGroup.POST("/changePassword", accountHandler.ChangePassword)
 		accountGroup.POST("/findByID", accountHandler.FindByID)
 		accountGroup.POST("/findByUsername", accountHandler.FindByUsername)
@@ -80,6 +80,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 		protectedVideoGroup.POST("/uploadCover", videoHandler.UploadCover)
 		protectedVideoGroup.POST("/publish", videoHandler.PublishVideo)
 	}
+
 	// like
 	likeMQ, err := rabbitmq.NewLikeMQ(rmq)
 	if err != nil {
@@ -98,6 +99,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 		protectedLikeGroup.POST("/isLiked", likeHandler.IsLiked)
 		protectedLikeGroup.POST("/listMyLikedVideos", likeHandler.ListMyLikedVideos)
 	}
+
 	// comment
 	commentRepository := video.NewCommentRepository(db)
 	commentMQ, err := rabbitmq.NewCommentMQ(rmq)
@@ -117,6 +119,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 		protectedCommentGroup.POST("/publish", commentLimiter, commentHandler.PublishComment)
 		protectedCommentGroup.POST("/delete", commentLimiter, commentHandler.DeleteComment)
 	}
+
 	// social
 	socialMQ, err := rabbitmq.NewSocialMQ(rmq)
 	if err != nil {
@@ -135,6 +138,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 		protectedSocialGroup.POST("/getAllFollowers", socialHandler.GetAllFollowers)
 		protectedSocialGroup.POST("/getAllVloggers", socialHandler.GetAllVloggers)
 	}
+	
 	// feed
 	feedRepository := feed.NewFeedRepository(db)
 	feedService := feed.NewFeedService(feedRepository, likeRepository, cache)

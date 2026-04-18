@@ -96,7 +96,7 @@ func (vs *VideoService) ListByAuthorID(ctx context.Context, authorID uint) ([]Vi
 	return videos, nil
 }
 
-func (vs *VideoService) GetDetail(ctx context.Context, id uint) (*Video, error) {
+func (vs *VideoService) GetDetail(ctx context.Context, id uint) (*Video, error) {  // 单飞查询，多个数据库请求合并为一个数据库请求
 	cacheKey := fmt.Sprintf("video:detail:id=%d", id)
 
 	getCached := func() (*Video, bool) {
@@ -124,13 +124,14 @@ func (vs *VideoService) GetDetail(ctx context.Context, id uint) (*Video, error) 
 		_ = vs.cache.SetBytes(opCtx, cacheKey, b, vs.cacheTTL)
 	}
 
-	if vs.cache != nil {
-		if v, ok := getCached(); ok {
+	if vs.cache != nil {  
+		// 快路径 (Fast Path)，首先尝试从缓存中读取。
+		if v, ok := getCached(); ok {  
 			return v, nil
 		}
 
 		opCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
-		b, err := vs.cache.GetBytes(opCtx, cacheKey)
+		b, err := vs.cache.GetBytes(opCtx, cacheKey) // 双重检查， 使得后面的请求只有一个去查数据库
 		cancel()
 		if err == nil {
 			var cached Video
