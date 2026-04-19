@@ -158,9 +158,9 @@ func (f *FeedService) ListLatest(ctx context.Context, limit int, latestBefore ti
 
 	if isZsetEmpty {
 		//全局静态锁：无视所有用户的不同时间戳游标
-		sfKey := "sf:fallback:global_timeline_rebuild"
+		sfKey := "sf:fallback:global_timeline_rebuild" // 单飞锁key
 
-		v, err, _ := f.requestGroup.Do(sfKey, func() (interface{}, error) {
+		v, err, _ := f.requestGroup.Do(sfKey, func() (interface{}, error) { // 单飞锁，防止缓存击穿时大量请求直接打到数据库
 			// 无视游标，直接去 MySQL 捞最新的 1000 条
 			dbVideos, err := f.repo.ListLatest(ctx, 1000, time.Time{})
 			if err != nil {
@@ -176,8 +176,8 @@ func (f *FeedService) ListLatest(ctx context.Context, limit int, latestBefore ti
 			var zElements []redis.Z
 			for _, vid := range dbVideos {
 				zElements = append(zElements, redis.Z{
-					Score:  float64(vid.CreateTime.UnixMilli()),
-					Member: fmt.Sprintf("%d", vid.ID),
+					Score:  float64(vid.CreateTime.UnixMilli()), // 使用创建时间作为分数
+					Member: fmt.Sprintf("%d", vid.ID),           // 视频ID作为成员
 				})
 			}
 			f.rediscache.ZAdd(bgCtx, "feed:global_timeline", zElements...)
@@ -195,9 +195,9 @@ func (f *FeedService) ListLatest(ctx context.Context, limit int, latestBefore ti
 		return f.ListLatest(ctx, limit, latestBefore, viewerAccountID)
 	}
 
-	watermark := int64(zsetTail[0].Score)
-	reqTime := time.Now().UnixMilli()
-	if !latestBefore.IsZero() {
+	watermark := int64(zsetTail[0].Score) // Redis中最老视频的时间戳，单位毫秒
+	reqTime := time.Now().UnixMilli()     // 默认请求时间为当前时间戳，除非用户传了游标
+	if !latestBefore.IsZero() {           // 如果用户传了游标，则以用户的游标为准
 		reqTime = latestBefore.UnixMilli()
 	}
 
@@ -232,12 +232,12 @@ func (f *FeedService) ListLatest(ctx context.Context, limit int, latestBefore ti
 		var videoIDs []uint
 		for _, idStr := range videoIDsStr {
 			if id, err := strconv.ParseUint(idStr, 10, 64); err == nil {
-				videoIDs = append(videoIDs, uint(id))
+				videoIDs = append(videoIDs, uint(id)) // 从字符串转换回 uint 视频ID
 			}
 		}
 
 		if len(videoIDs) > 0 {
-			baseVideos, err = f.GetVideoByIDs(ctx, videoIDs)
+			baseVideos, err = f.GetVideoByIDs(ctx, videoIDs) // 通过videoIDs获取视频详情
 			if err != nil {
 				return ListLatestResponse{}, err
 			}
@@ -516,7 +516,7 @@ func (f *FeedService) buildFeedVideos(ctx context.Context, videos []*video.Video
 	for i, v := range videos {
 		videoIDs[i] = v.ID
 	}
-	likedMap, err := f.likeRepo.BatchGetLiked(ctx, videoIDs, viewerAccountID)
+	likedMap, err := f.likeRepo.BatchGetLiked(ctx, videoIDs, viewerAccountID) // 批量查询用户对这些视频的点赞状态
 	if err != nil {
 		return nil, err
 	}
