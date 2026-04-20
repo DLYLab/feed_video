@@ -57,14 +57,14 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 	// 账户安全相关限流（基于IP）：
 	// - 登录限流：每分钟最多10次，防止暴力破解密码
 	// - 注册限流：每小时最多5次，防止恶意注册大量账号
-	loginLimiter := ratelimit.Limit(cache, "account_login", 10, time.Minute, ratelimit.KeyByIP)
+	loginLimiter := ratelimit.Limit(cache, "account_login", 3, time.Minute, ratelimit.KeyByIP)   // redis key : feedsystem:ratelimit:account_login:ip
 	registerLimiter := ratelimit.Limit(cache, "account_register", 5, time.Hour, ratelimit.KeyByIP)
 
 	// 业务操作限流（基于账号ID）：
 	// - 点赞限流：每分钟最多30次，防止刷赞
 	// - 评论限流：每分钟最多10次，防止刷评论
 	// - 关注限流：每分钟最多20次，防止恶意关注/取关
-	likeLimiter := ratelimit.Limit(cache, "like_write", 30, time.Minute, ratelimit.KeyByAccount)
+	likeLimiter := ratelimit.Limit(cache, "like_write", 30, time.Minute, ratelimit.KeyByAccount)  	// redis key : feedsystem:ratelimit:like_write:account_id
 	commentLimiter := ratelimit.Limit(cache, "comment_write", 10, time.Minute, ratelimit.KeyByAccount)
 	socialLimiter := ratelimit.Limit(cache, "social_write", 20, time.Minute, ratelimit.KeyByAccount)
 
@@ -97,7 +97,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 		// 用户注册 - 需要注册限流，防止恶意注册
 		accountGroup.POST("/register", registerLimiter, accountHandler.CreateAccount)
 		// 用户登录 - 需要登录限流，防止暴力破解
-		accountGroup.POST("/login", loginLimiter, accountHandler.Login)
+		accountGroup.POST("/login", loginLimiter, accountHandler.Login)  // redis key : "account:%d", account.ID
 		// 修改密码 - 需要旧密码验证安全性
 		accountGroup.POST("/changePassword", accountHandler.ChangePassword)
 		// 用户查询接口（公开） - 支持按ID或用户名查询
@@ -142,7 +142,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 		// 按作者ID查询视频列表 - 用于用户主页展示
 		videoGroup.POST("/listByAuthorID", videoHandler.ListByAuthorID)
 		// 获取视频详情 - 包括视频信息、作者信息、点赞数等
-		videoGroup.POST("/getDetail", videoHandler.GetDetail)
+		videoGroup.POST("/getDetail", videoHandler.GetDetail)  // key:  "video:detail:id=%d", id
 	}
 
 	// 受保护接口（需要JWT认证） - 只有登录用户才能上传和发布视频
@@ -154,7 +154,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 		// 上传封面图片 - 为视频设置封面
 		protectedVideoGroup.POST("/uploadCover", videoHandler.UploadCover)
 		// 发布视频 - 将上传的视频和封面关联，设置为公开状态
-		protectedVideoGroup.POST("/publish", videoHandler.PublishVideo)
+		protectedVideoGroup.POST("/publish", videoHandler.PublishVideo)  // 异步发布
 	}
 
 	// Like 模块 - 点赞功能
@@ -182,10 +182,10 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 	protectedLikeGroup := likeGroup.Group("")
 	protectedLikeGroup.Use(jwt.JWTAuth(accountRepository, cache))
 	{
-		// 点赞视频 - 需要限流，防止刷赞
-		protectedLikeGroup.POST("/like", likeLimiter, likeHandler.Like)
+		// 点赞视频 - 需要限流，防止刷赞,  异步消息
+		protectedLikeGroup.POST("/like", likeLimiter, likeHandler.Like)  // key: "hot:video:1m:" + now.Format("200601021504"); member: VideoID, score: +1; Expire: 2h
 		// 取消点赞 - 需要限流
-		protectedLikeGroup.POST("/unlike", likeLimiter, likeHandler.Unlike)
+		protectedLikeGroup.POST("/unlike", likeLimiter, likeHandler.Unlike)  // score: -1
 		// 查询是否已点赞 - 快速从缓存获取状态
 		protectedLikeGroup.POST("/isLiked", likeHandler.IsLiked)
 		// 获取用户点赞的视频列表 - 用于"我的喜欢"页面
@@ -255,7 +255,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 	protectedSocialGroup := socialGroup.Group("")
 	protectedSocialGroup.Use(jwt.JWTAuth(accountRepository, cache))
 	{
-		// 关注用户 - 需要限流，建立关注关系
+		// 关注用户 - 需要限流，建立关注关系// 异步消息
 		protectedSocialGroup.POST("/follow", socialLimiter, socialHandler.Follow)
 		// 取消关注 - 需要限流，解除关注关系
 		protectedSocialGroup.POST("/unfollow", socialLimiter, socialHandler.Unfollow)
