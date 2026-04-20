@@ -57,8 +57,8 @@ func (f *FeedHandler) ListLikesCount(c *gin.Context) {
 			return
 		}
 
-		likesCountBefore := *req.LikesCountBefore
-		idBefore := *req.IDBefore
+		likesCountBefore := *req.LikesCountBefore //
+		idBefore := *req.IDBefore                 //
 
 		if likesCountBefore < 0 {
 			c.JSON(400, gin.H{"error": "invalid cursor: likes_count_before must be >= 0"})
@@ -71,7 +71,7 @@ func (f *FeedHandler) ListLikesCount(c *gin.Context) {
 			}
 		} else {
 			cursor = &LikesCountCursor{
-				LikesCount: likesCountBefore,
+				LikesCount: likesCountBefore, //
 				ID:         idBefore,
 			}
 		}

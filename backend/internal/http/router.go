@@ -284,9 +284,9 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 	feedGroup.Use(jwt.SoftJWTAuth(accountRepository, cache))
 	{
 		// 最新视频列表 - 按发布时间倒序排列
-		feedGroup.POST("/listLatest", feedHandler.ListLatest)
+		feedGroup.POST("/listLatest", feedHandler.ListLatest)  // 有关redis
 		// 点赞数排行 - 按点赞数从高到低排列
-		feedGroup.POST("/listLikesCount", feedHandler.ListLikesCount)
+		feedGroup.POST("/listLikesCount", feedHandler.ListLikesCount)  // 无关redis
 		// 热门视频 - 综合热度算法（点赞、评论、时间等因素）
 		feedGroup.POST("/listByPopularity", feedHandler.ListByPopularity)
 	}

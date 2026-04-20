@@ -312,7 +312,7 @@ func (f *FeedService) ListLikesCount(ctx context.Context, limit int, cursor *Lik
 	return resp, nil
 }
 
-// 按照关注列表查询视频
+// 按照关注列表查询视频 // 这里代码不适合单飞机制设计，因为缓存的key与用户id强相关，就算失效也不会有大量请求访问数据库
 func (f *FeedService) ListByFollowing(ctx context.Context, limit int, latestBefore time.Time, viewerAccountID uint) (ListByFollowingResponse, error) {
 	doListByFollowingFromDB := func() (ListByFollowingResponse, error) {
 		videos, err := f.repo.ListByFollowing(ctx, limit, viewerAccountID, latestBefore)
@@ -413,7 +413,7 @@ func (f *FeedService) ListByPopularity(ctx context.Context, limit int, reqAsOf i
 		const win = 60
 		keys := make([]string, 0, win)
 		for i := 0; i < win; i++ {
-			keys = append(keys, "hot:video:1m:"+asOf.Add(-time.Duration(i)*time.Minute).Format("200601021504"))
+			keys = append(keys, "hot:video:1m:"+asOf.Add(-time.Duration(i)*time.Minute).Format("200601021504"))  // 热点数据覆盖最近1小时，每分钟一个快照
 		}
 
 		dest := "hot:video:merge:1m:" + asOf.Format("200601021504") // 快照key：同一个as_of页内复用
@@ -466,8 +466,8 @@ func (f *FeedService) ListByPopularity(ctx context.Context, limit int, reqAsOf i
 				}
 				resp := ListByPopularityResponse{
 					VideoList:  items,
-					AsOf:       asOf.Unix(),
-					NextOffset: offset + len(items),
+					AsOf:       asOf.Unix(),  // 用户第一次请求（热榜）的时间点，后续翻页保持不变
+					NextOffset: offset + len(items),  // 返回的序号偏移量，前端根据这个值决定下一页的offset
 					HasMore:    len(items) == limit,
 				}
 				if len(ordered) > 0 {
