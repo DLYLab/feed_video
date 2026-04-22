@@ -284,11 +284,11 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 	feedGroup.Use(jwt.SoftJWTAuth(accountRepository, cache))
 	{
 		// 最新视频列表 - 按发布时间倒序排列
-		feedGroup.POST("/listLatest", feedHandler.ListLatest)  // 有关redis
+		feedGroup.POST("/listLatest", feedHandler.ListLatest)  // 有关redis : "feed:global_timeline"
 		// 点赞数排行 - 按点赞数从高到低排列
 		feedGroup.POST("/listLikesCount", feedHandler.ListLikesCount)  // 无关redis
 		// 热门视频 - 综合热度算法（点赞、评论、时间等因素）
-		feedGroup.POST("/listByPopularity", feedHandler.ListByPopularity)
+		feedGroup.POST("/listByPopularity", feedHandler.ListByPopularity)  // key: dest := "hot:video:merge:1m:" + asOf.Format("200601021504")
 	}
 
 	// 受保护接口（需要登录） - 关注流只对登录用户开放
@@ -296,7 +296,7 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 	protectedFeedGroup.Use(jwt.JWTAuth(accountRepository, cache))
 	{
 		// 关注流 - 只显示关注用户的视频，按时间倒序
-		protectedFeedGroup.POST("/listByFollowing", feedHandler.ListByFollowing)
+		protectedFeedGroup.POST("/listByFollowing", feedHandler.ListByFollowing)  // cacheKey = fmt.Sprintf("feed:listByFollowing:limit=%d:accountID=%d:before=%d", limit, viewerAccountID, before)
 	}
 	// Worker 启动 - 异步任务处理
 	// ============================================================================
